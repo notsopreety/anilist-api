@@ -2,6 +2,26 @@ const axios = require('axios');
 
 const ANILIST_API = 'https://graphql.anilist.co';
 
+// Base media fields for reuse in queries
+const MEDIA_FIELDS = `
+  id
+  title {
+    romaji
+    english
+    native
+  }
+  coverImage {
+    large
+  }
+  description(asHtml: false)
+  chapters
+  volumes
+  status
+  genres
+  averageScore
+  siteUrl
+`;
+
 const SEARCH_MANGA_QUERY = `
 query ($search: String, $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
@@ -13,22 +33,7 @@ query ($search: String, $page: Int, $perPage: Int) {
       perPage
     }
     media(search: $search, type: MANGA) {
-      id
-      title {
-        romaji
-        english
-        native
-      }
-      coverImage {
-        large
-      }
-      description(asHtml: false)
-      chapters
-      volumes
-      status
-      genres
-      averageScore
-      siteUrl
+      ${MEDIA_FIELDS}
     }
   }
 }`;
@@ -36,22 +41,55 @@ query ($search: String, $page: Int, $perPage: Int) {
 const MANGA_BY_ID_QUERY = `
 query ($id: Int) {
   Media(id: $id, type: MANGA) {
-    id
-    title {
-      romaji
-      english
-      native
+    ${MEDIA_FIELDS}
+  }
+}`;
+
+const TOP_100_MANGA_QUERY = `
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+      currentPage
+      lastPage
+      hasNextPage
+      perPage
     }
-    coverImage {
-      large
+    media(type: MANGA, sort: SCORE_DESC) {
+      ${MEDIA_FIELDS}
     }
-    description(asHtml: false)
-    chapters
-    volumes
-    status
-    genres
-    averageScore
-    siteUrl
+  }
+}`;
+
+const TRENDING_MANGA_QUERY = `
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+      currentPage
+      lastPage
+      hasNextPage
+      perPage
+    }
+    media(type: MANGA, sort: TRENDING_DESC) {
+      ${MEDIA_FIELDS}
+    }
+  }
+}`;
+
+const TOP_MANHWA_QUERY = `
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+      currentPage
+      lastPage
+      hasNextPage
+      perPage
+    }
+    media(type: MANGA, countryOfOrigin: "KR", sort: SCORE_DESC) {
+      ${MEDIA_FIELDS}
+    }
   }
 }`;
 
@@ -95,4 +133,70 @@ async function getMangaById(id) {
   }
 }
 
-module.exports = { searchManga, getMangaById };
+/**
+ * Fetches top 100 manga with pagination.
+ * @param {number} page - The page number.
+ * @param {number} perPage - Items per page.
+ */
+async function getTop100Manga(page = 1, perPage = 10) {
+  try {
+    const res = await axios.post(ANILIST_API, {
+      query: TOP_100_MANGA_QUERY,
+      variables: { page, perPage }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.data.Page;
+  } catch (err) {
+    throw new Error(err.response?.data?.errors?.[0]?.message || 'AniList top 100 error');
+  }
+}
+
+/**
+ * Fetches trending manga with pagination.
+ * @param {number} page - The page number.
+ * @param {number} perPage - Items per page.
+ */
+async function getTrendingManga(page = 1, perPage = 10) {
+  try {
+    const res = await axios.post(ANILIST_API, {
+      query: TRENDING_MANGA_QUERY,
+      variables: { page, perPage }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.data.Page;
+  } catch (err) {
+    throw new Error(err.response?.data?.errors?.[0]?.message || 'AniList trending error');
+  }
+}
+
+/**
+ * Fetches top manhwa with pagination.
+ * @param {number} page - The page number.
+ * @param {number} perPage - Items per page.
+ */
+async function getTopManhwa(page = 1, perPage = 10) {
+  try {
+    const res = await axios.post(ANILIST_API, {
+      query: TOP_MANHWA_QUERY,
+      variables: { page, perPage }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.data.Page;
+  } catch (err) {
+    throw new Error(err.response?.data?.errors?.[0]?.message || 'AniList top manhwa error');
+  }
+}
+
+module.exports = {
+  searchManga,
+  getMangaById,
+  getTop100Manga,
+  getTrendingManga,
+  getTopManhwa
+};
