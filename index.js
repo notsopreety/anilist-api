@@ -20,47 +20,6 @@ app.use(cors());
 app.use(express.json());
 
 /**
- * @route GET /manga/search/:query
- * @desc Search manga by title with pagination and caching
- * @query {page} - Page number (default: 1)
- * @query {perPage} - Items per page (default: 10)
- */
-app.get('/manga/search/:query', async (req, res) => {
-  try {
-    const { query } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const perPage = parseInt(req.query.perPage) || 10;
-
-    if (page < 1 || perPage < 1) {
-      return res.status(400).json({ success: false, message: 'Invalid page or perPage value' });
-    }
-
-    const cacheKey = `search:${query}:${page}:${perPage}`;
-    const cachedResults = cache.get(cacheKey);
-    if (cachedResults) {
-      return res.status(200).json({
-        success: true,
-        pagination: cachedResults.pageInfo,
-        results: cachedResults.media,
-        cached: true
-      });
-    }
-
-    const results = await searchManga(query, page, perPage);
-    cache.set(cacheKey, results);
-
-    res.status(200).json({
-      success: true,
-      pagination: results.pageInfo,
-      results: results.media,
-      cached: false
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-/**
  * @route GET /manga/top100
  * @desc Get top 100 manga with pagination and caching
  * @query {page} - Page number (default: 1)
@@ -167,6 +126,47 @@ app.get('/manga/top-manhwa', async (req, res) => {
     }
 
     const results = await getTopManhwa(page, perPage);
+    cache.set(cacheKey, results);
+
+    res.status(200).json({
+      success: true,
+      pagination: results.pageInfo,
+      results: results.media,
+      cached: false
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route GET /manga/search/:query
+ * @desc Search manga by title with pagination and caching
+ * @query {page} - Page number (default: 1)
+ * @query {perPage} - Items per page (default: 10)
+ */
+app.get('/manga/search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const perPage = parseInt(req.query.perPage) || 10;
+
+    if (page < 1 || perPage < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid page or perPage value' });
+    }
+
+    const cacheKey = `search:${query}:${page}:${perPage}`;
+    const cachedResults = cache.get(cacheKey);
+    if (cachedResults) {
+      return res.status(200).json({
+        success: true,
+        pagination: cachedResults.pageInfo,
+        results: cachedResults.media,
+        cached: true
+      });
+    }
+
+    const results = await searchManga(query, page, perPage);
     cache.set(cacheKey, results);
 
     res.status(200).json({
