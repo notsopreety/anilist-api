@@ -93,6 +93,86 @@ query ($page: Int, $perPage: Int) {
   }
 }`;
 
+// Anime Queries
+const SEARCH_ANIME_QUERY = `
+query ($search: String, $page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+      currentPage
+      lastPage
+      hasNextPage
+      perPage
+    }
+    media(search: $search, type: ANIME) {
+      ${MEDIA_FIELDS}
+      episodes
+      duration
+      season
+      seasonYear
+      studios(isMain: true) {
+        nodes {
+          name
+        }
+      }
+    }
+  }
+}`;
+
+const ANIME_BY_ID_QUERY = `
+query ($id: Int) {
+  Media(id: $id, type: ANIME) {
+    ${MEDIA_FIELDS}
+    episodes
+    duration
+    season
+    seasonYear
+    studios(isMain: true) {
+      nodes {
+        name
+      }
+    }
+  }
+}`;
+
+const TOP_100_ANIME_QUERY = `
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+      currentPage
+      lastPage
+      hasNextPage
+      perPage
+    }
+    media(type: ANIME, sort: SCORE_DESC) {
+      ${MEDIA_FIELDS}
+      episodes
+      season
+      seasonYear
+    }
+  }
+}`;
+
+const TRENDING_ANIME_QUERY = `
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+      currentPage
+      lastPage
+      hasNextPage
+      perPage
+    }
+    media(type: ANIME, sort: TRENDING_DESC) {
+      ${MEDIA_FIELDS}
+      episodes
+      season
+      seasonYear
+    }
+  }
+}`;
+
 /**
  * Fetches search results for manga title with pagination.
  * @param {string} search - The search string.
@@ -193,10 +273,97 @@ async function getTopManhwa(page = 1, perPage = 10) {
   }
 }
 
+/**
+ * Fetches search results for anime title with pagination.
+ * @param {string} search - The search string.
+ * @param {number} page - The page number.
+ * @param {number} perPage - Items per page.
+ */
+async function searchAnime(search, page = 1, perPage = 10) {
+  try {
+    const res = await axios.post(ANILIST_API, {
+      query: SEARCH_ANIME_QUERY,
+      variables: { search, page, perPage }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.data.Page;
+  } catch (err) {
+    throw new Error(err.response?.data?.errors?.[0]?.message || 'AniList anime search error');
+  }
+}
+
+/**
+ * Fetches anime details by ID.
+ * @param {number} id - The AniList anime ID.
+ */
+async function getAnimeById(id) {
+  try {
+    const res = await axios.post(ANILIST_API, {
+      query: ANIME_BY_ID_QUERY,
+      variables: { id }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.data.Media;
+  } catch (err) {
+    throw new Error(err.response?.data?.errors?.[0]?.message || 'AniList anime ID error');
+  }
+}
+
+/**
+ * Fetches top 100 anime with pagination.
+ * @param {number} page - The page number.
+ * @param {number} perPage - Items per page.
+ */
+async function getTop100Anime(page = 1, perPage = 10) {
+  try {
+    const res = await axios.post(ANILIST_API, {
+      query: TOP_100_ANIME_QUERY,
+      variables: { page, perPage }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.data.Page;
+  } catch (err) {
+    throw new Error(err.response?.data?.errors?.[0]?.message || 'AniList top 100 anime error');
+  }
+}
+
+/**
+ * Fetches trending anime with pagination.
+ * @param {number} page - The page number.
+ * @param {number} perPage - Items per page.
+ */
+async function getTrendingAnime(page = 1, perPage = 10) {
+  try {
+    const res = await axios.post(ANILIST_API, {
+      query: TRENDING_ANIME_QUERY,
+      variables: { page, perPage }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.data.Page;
+  } catch (err) {
+    throw new Error(err.response?.data?.errors?.[0]?.message || 'AniList trending anime error');
+  }
+}
+
 module.exports = {
+  // Manga exports
   searchManga,
   getMangaById,
   getTop100Manga,
   getTrendingManga,
-  getTopManhwa
+  getTopManhwa,
+  
+  // Anime exports
+  searchAnime,
+  getAnimeById,
+  getTop100Anime,
+  getTrendingAnime
 };

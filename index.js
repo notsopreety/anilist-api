@@ -2,11 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const NodeCache = require('node-cache');
 const {
+  // Manga functions
   searchManga,
   getMangaById,
   getTop100Manga,
   getTrendingManga,
-  getTopManhwa
+  getTopManhwa,
+  // Anime functions
+  searchAnime,
+  getAnimeById,
+  getTop100Anime,
+  getTrendingAnime
 } = require('./queries/anilist');
 
 const app = express();
@@ -212,12 +218,169 @@ app.get('/manga/:id', async (req, res) => {
   }
 });
 
+// ======================
+// Anime Endpoints
+// ======================
+
+/**
+ * @route GET /anime/top100
+ * @desc Get top 100 anime with pagination and caching
+ * @query {page} - Page number (default: 1)
+ * @query {perPage} - Items per page (default: 10)
+ */
+app.get('/anime/top100', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const perPage = parseInt(req.query.perPage) || 10;
+
+    if (page < 1 || perPage < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid page or perPage value' });
+    }
+
+    const cacheKey = `anime:top100:${page}:${perPage}`;
+    const cachedResults = cache.get(cacheKey);
+    if (cachedResults) {
+      return res.status(200).json({
+        success: true,
+        pagination: cachedResults.pageInfo,
+        results: cachedResults.media,
+        cached: true
+      });
+    }
+
+    const results = await getTop100Anime(page, perPage);
+    cache.set(cacheKey, results);
+
+    res.status(200).json({
+      success: true,
+      pagination: results.pageInfo,
+      results: results.media,
+      cached: false
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route GET /anime/trending
+ * @desc Get trending anime with pagination and caching
+ * @query {page} - Page number (default: 1)
+ * @query {perPage} - Items per page (default: 10)
+ */
+app.get('/anime/trending', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const perPage = parseInt(req.query.perPage) || 10;
+
+    if (page < 1 || perPage < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid page or perPage value' });
+    }
+
+    const cacheKey = `anime:trending:${page}:${perPage}`;
+    const cachedResults = cache.get(cacheKey);
+    if (cachedResults) {
+      return res.status(200).json({
+        success: true,
+        pagination: cachedResults.pageInfo,
+        results: cachedResults.media,
+        cached: true
+      });
+    }
+
+    const results = await getTrendingAnime(page, perPage);
+    cache.set(cacheKey, results);
+
+    res.status(200).json({
+      success: true,
+      pagination: results.pageInfo,
+      results: results.media,
+      cached: false
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route GET /anime/search/:query
+ * @desc Search anime by title with pagination and caching
+ * @query {page} - Page number (default: 1)
+ * @query {perPage} - Items per page (default: 10)
+ */
+app.get('/anime/search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const perPage = parseInt(req.query.perPage) || 10;
+
+    if (page < 1 || perPage < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid page or perPage value' });
+    }
+
+    const cacheKey = `anime:search:${query}:${page}:${perPage}`;
+    const cachedResults = cache.get(cacheKey);
+    if (cachedResults) {
+      return res.status(200).json({
+        success: true,
+        pagination: cachedResults.pageInfo,
+        results: cachedResults.media,
+        cached: true
+      });
+    }
+
+    const results = await searchAnime(query, page, perPage);
+    cache.set(cacheKey, results);
+
+    res.status(200).json({
+      success: true,
+      pagination: results.pageInfo,
+      results: results.media,
+      cached: false
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route GET /anime/:id
+ * @desc Get anime by AniList ID with caching
+ */
+app.get('/anime/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+
+    const cacheKey = `anime:${id}`;
+    const cachedAnime = cache.get(cacheKey);
+    if (cachedAnime) {
+      return res.status(200).json({
+        success: true,
+        anime: cachedAnime,
+        cached: true
+      });
+    }
+
+    const anime = await getAnimeById(id);
+    cache.set(cacheKey, anime);
+
+    res.status(200).json({
+      success: true,
+      anime,
+      cached: false
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Root
 app.get('/', (req, res) => {
-  res.send('📚 Welcome to AniList Manga REST API');
+  res.send('📺📚 Welcome to AniList Anime & Manga REST API');
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`✅ AniList Manga API running at http://localhost:${PORT}`);
+  console.log(`✅ AniList Anime & Manga API running at http://localhost:${PORT}`);
 });
